@@ -1,0 +1,89 @@
+#AppLocker Function - (Better than other script) Can also add -user with FQDN to get user level applocker permission
+#Example - Test-applockerpolicy -path "fullpath cc:\" -policyobject $alp -user 'username'
+#Tests files AppLocker permissions under a specific user
+Function Test-AppLockerRuleOnFiles
+{
+    [CmdletBinding()]
+    Param(
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
+        [System.String]
+        $Path,
+        [Parameter(Mandatory = $false, Position = 1)]
+        [System.String]
+        $OutputDirectory
+    )
+    If ( $OutputDirectory -eq '' )
+    {
+        $OutputDirectory = $Path
+    }
+    Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status 'Fetching effective AppLocker policy'
+    $AppLockerPolicy = Get-AppLockerPolicy -Effective
+    $CopyDecisions = 'DeniedByDefault', 'TestFailed'
+    $Unsupported = @()
+    $PolicyDecisions = @()
+    $Count = 0
+    Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status 'Creating staging directory'
+    $OutputDirectory = Join-Path -Path $OutputDirectory -ChildPath "AppLockerTest_$(Get-Date -Format yyyyMMdd_HHmm)"
+    New-Item -Path $OutputDirectory -ItemType Directory | Out-Null
+    Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status 'Enumerating files to test'
+    $Files = Get-ChildItem -Path $Path -File -Recurse
+    $Files | ForEach-Object {
+        $FileObject = $_
+        $FilePath = $FileObject.FullName
+        $FileExtension = $FileObject.Extension.ToUpper().Replace('.', '')
+        $MatchingRule = ''
+        If ( $FileExtension -eq '' )
+        {
+            $FileExtension = 'NoExtension'
+        }
+        If ( $Unsupported -contains $FileExtension )
+        {
+            Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status "Skipping unsupported file $($Count + 1) of $($Files.Count): $($FilePath)" -PercentComplete ($Count * 100 / $Files.Count)
+            $PolicyDecision = "Unsupported"
+        }
+        Else
+        {
+            Try
+            {
+                Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status "Testing file $($Count + 1) of $($Files.Count): $($FilePath)" -PercentComplete ($Count * 100 / $Files.Count)
+                $TestResult = Test-AppLockerPolicy -Path $FilePath -PolicyObject $AppLockerPolicy -ErrorAction Stop
+                $PolicyDecision = $TestResult.PolicyDecision
+                $MatchingRule = $TestResult.MatchingRule
+                If ( $null -eq $PolicyDecision)
+                {
+                    $PolicyDecision = "NoRuling"
+                }
+            }
+            Catch [Microsoft.Security.ApplicationId.PolicyManagement.UnsupportedFileTypeException]
+            {
+                $Unsupported += $FileExtension
+                $PolicyDecision = "Unsupported"
+            }
+            Catch  # TODO: Catch Unspecified Error. System.IO.FileLoadException?
+            {
+                $PolicyDecision = "TestFailed"
+            }
+        }
+        $Destination = Join-Path -Path $OutputDirectory -ChildPath $PolicyDecision
+        If ( $CopyDecisions -contains $PolicyDecision )
+        {
+            If ( -not (Test-Path -Path $Destination) )
+            {
+                New-Item -Path $Destination -ItemType Directory | Out-Null
+            }
+            Copy-Item -Path $FilePath -Destination $Destination
+        }
+        $PolicyDecisions += [PSCustomObject]@{
+            FilePath = $FilePath
+            Extension = $FileExtension
+            PolicyDecision = $PolicyDecision
+            MatchingRule = $MatchingRule
+        }
+        $Count += 1
+    }
+    Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Status "Writing report file"
+    $ReportPath = Join-Path -Path $OutputDirectory -ChildPath "TestResults_$(Get-Date -Format yyyyMMdd_HHmm).csv"
+    $PolicyDecisions | Export-Csv $ReportPath -NoTypeInformation
+    Write-Host "Report written to $($ReportPath)"
+    Write-Progress -Id 0 -Activity "Testing AppLocker Policy On $($Path)" -Completed
+}
