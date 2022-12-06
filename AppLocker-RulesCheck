@@ -1,0 +1,49 @@
+#AppLockerScript
+#Swap the path out after running the first script and it'll go through and test each one, 
+#orting them into folders for Unsupported, Allowed, and DeniedByDefault.
+
+$dp = 'C:\Temp\User1'
+$dirs = Get-ChildItem $dp -Directory
+$alp = Get-AppLockerPolicy -Effective
+$unsupported = @()
+$dirs | ForEach-Object {
+    $ext = $_.BaseName
+    Get-ChildItem $_.FullName | ForEach-Object {
+        $fp = $_.FullName
+        If ( $unsupported -contains $ext )
+        {
+            $pd = "Unsupported"
+        }
+        Else
+        {
+            Try
+            {
+                $pd = ($alp | Test-AppLockerPolicy -Path $fp -ErrorAction Stop).PolicyDecision
+                If ( $null -eq $pd )
+                {
+                    $pd = "NoRuling"
+                }
+            }
+            Catch [Microsoft.Security.ApplicationId.PolicyManagement.UnsupportedFileTypeException]
+            {
+                $unsupported += $ext
+                $pd = "Unsupported"
+            }
+            Catch
+            {
+                $pd = "ErrorWhileChecking"
+            }
+        }
+        $dest = Join-Path $dp "_$($pd)"
+        $dest = Join-Path $dest $ext
+        If ( -not (Test-Path $dest) )
+        {
+            New-Item $dest -ItemType Directory
+        }
+        $fp | Move-Item -Destination $dest
+    }
+    If ( (Get-ChildItem $_.FullName -Recurse -File).Count -eq 0 )
+    {
+        Remove-Item $_.FullName -Force
+    }
+}
