@@ -1,0 +1,7 @@
+#Lists the name of the servers and matching AD group that is used for patching phases. In this example ServerPatching P1, P2 and P3 are used. 
+"OU=OU-NAME1,DC=DOMAIN NAME,DC=com", "OU=OU-NAME2,DC=DOMAIN Name,DC=com" | 
+ForEach-Object { Get-ADComputer -Filter { Enabled -eq $true -and OperatingSystem -like "*Windows*" } -Properties MemberOf,Description,OperatingSystem -SearchBase $_ } |
+Where-Object { $_.DistinguishedName -like "*Server*" } | 
+Select-Object Name,Description,Enabled,OperatingSystem,@{ n="PatchingGroup"; e={ ($_.MemberOf | 
+ForEach-Object { Get-ADGroup $_ }).Name | Where-Object { $_ -match '^(SPEC|TIME)sgServerPatchingP(1|2|3)$' } } },@{ n="PatchingTestGroup"; e={ ($_.MemberOf | 
+ForEach-Object { Get-ADGroup $_ }).Name | Where-Object { $_ -match '^(SPEC|TIME)sgServerPatchingTest$' } } },$DirectoryPath | Out-GridView
