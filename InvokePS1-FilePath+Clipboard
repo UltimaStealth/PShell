@@ -1,0 +1,3 @@
+#Get-Date; Invoke-Command -ComputerName (Get-Clipboard) -filePath "PATH TO .ps1"
+#Get-Date; Invoke-Command -ComputerName (Get-Clipboard) -filePath "PATH TO ANOTHER.ps1"
+Invoke-Command -ComputerName (Get-Clipboard) 
