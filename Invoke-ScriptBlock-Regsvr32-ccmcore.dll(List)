@@ -1,0 +1,5 @@
+$Computers_To_Add = Get-Content -Path "C:\Temp\MachinesMissingSCCM.txt"
+#
+#
+foreach ($Computer in $Computers_To_Add)`
+{Invoke-Command -ComputerName $Computer -ScriptBlock {regsvr32.exe "C:\Windows\System32\ccmcore.dll"}} 
