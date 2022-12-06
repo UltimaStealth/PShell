@@ -1,0 +1,3 @@
+New-SPContentDatabase -Name "spdb_compliance" -DatabaseServer "SharePointServerName\SharPpoint"  -WebApplication "http://SharePointServerName/"
+New-SPContentDatabase -Name "spdb_dba"        -DatabaseServer "SharePointServerName\SharPpoint"  -WebApplication "http://SharePointServerName/"
+#Can add more as above as needed
