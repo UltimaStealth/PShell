@@ -1,0 +1,5 @@
+#Finds mailboxes over quota
+$mboxes = Get-Mailbox -RecipientTypeDetails UserMailbox -Resultsize Unlimited
+$data = @()
+foreach ($mailbox in $mboxes){$data+=Get-MailboxFolderStatistics $mailbox.UserPrincipalName| FL displayname,totalitemsize}
+foreach($mailbox in $mailboxes){$data+=Get-MailboxFolderStatistics $mailbox.UserPrincipalName| FL displayname,totalitemsize}
