@@ -1,0 +1,5 @@
+$Agents = Get-VBRDiscoveredComputer
+foreach ($agent in $agents) {
+   $agent | select Name, AgentVersion
+}
+$Agents | Export-Csv -Path "C:\Temp\AgentReport.csv"
