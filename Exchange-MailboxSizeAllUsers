@@ -1,0 +1,2 @@
+#Finds Mailbox Size for all Microsoft 365 users
+(Get-Mailbox -ResultSize Unlimited -RecipientTypeDetails UserMailbox | Get-MailboxStatistics | Select DisplayName, @{n="Total Size (MB)";e={[math]::Round(($_.TotalItemSize.ToString().Split("(")[1].Split(" ")[0].Replace(",","")/1MB),2)}}, StorageLimitStatus)|Out-Gridview
