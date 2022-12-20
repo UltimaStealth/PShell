@@ -1,0 +1,27 @@
+$Server = 'SERVERNAME'
+$SMOServer = New-Object Microsoft.SQLServer.Management.SMO.Server $Server
+ 
+# connection and query stuff        
+	$ConnectionStr = "Server=$Server;Database=Master;Integrated Security=True"
+	$Query = "EXEC sp_who2"
+ 
+	$Connection = new-object system.Data.SQLClient.SQLConnection
+	$Table = new-object "System.Data.DataTable"
+ 
+	$Connection.connectionstring = $ConnectionStr
+	try{
+		$Connection.open()
+		$Command = $Connection.CreateCommand()
+		$Command.commandtext = $Query
+ 
+		$result = $Command.ExecuteReader()
+ 
+		$Table.Load($result)
+	}
+	catch{
+# Show error
+		$error[0] |  format-list -Force
+	}
+$Title = "Data access processes (" + $Table.Rows.Count + ")"
+$Table | Out-GridView -Title $Title
+$Connection.close()
