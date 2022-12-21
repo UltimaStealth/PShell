@@ -1,0 +1,1 @@
+Get-ADComputer -Filter * -Properties * | Select -Property Name,DNSHostName,Enabled,LastLogonDate | Out-Gridview
