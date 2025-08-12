@@ -2,16 +2,7 @@
 $SOURCE_PROFILE = "C:\Users\USERNAME_TO_MIGRATE"  # Replace with actual username
 $DESTINATION_PATH = "C:\Temp\USERNAME_TO_MIGRATE"  # Local destination folder
 $LOG_FILE = "C:\Logs\Robocopy_USERNAME_TO_MIGRATE.log"
-$EXCLUDE_DIRS = @("AppData\Local\Temp", "AppData\LocalLow", "OneDrive")  # Exclude problematic folders
-
-# === PROMPT FOR CREDENTIALS ===
-Write-Host "Prompting for admin credentials..." -ForegroundColor Cyan
-$credential = Get-Credential -Message "Enter admin credentials (e.g., YOURDOMAIN\adminuser or local admin)"
-if (-not $credential) {
-    Write-Host "ERROR: No credentials provided. Exiting." -ForegroundColor Red
-    exit 1
-}
-$adminUser = $credential.UserName
+$EXCLUDE_DIRS = @("AppData\Local\Temp", "AppData\LocalLow", "OneDrive", "AppData\Local\Application Data")  # Exclude problematic folders
 
 # === ENSURE LOG DIRECTORY EXISTS ===
 Write-Host "Creating log directory if it doesn't exist..." -ForegroundColor Cyan
@@ -45,6 +36,21 @@ if (-not (Test-Path $DESTINATION_PATH)) {
     }
 }
 
+# === LOG PROBLEMATIC PATHS ===
+Write-Host "Checking for problematic paths in source..." -ForegroundColor Cyan
+try {
+    Get-ChildItem -Path $SOURCE_PROFILE -Recurse -Force -ErrorAction SilentlyContinue | 
+        Where-Object { -not (Test-Path $_.FullName) -or $_.Attributes -band [System.IO.FileAttributes]::ReparsePoint } | 
+        Select-Object -ExpandProperty FullName | 
+        Out-File "C:\Logs\BadPaths.txt" -Append
+    if (Test-Path "C:\Logs\BadPaths.txt") {
+        Write-Host "Logged problematic paths to 'C:\Logs\BadPaths.txt'." -ForegroundColor Yellow
+    }
+}
+catch {
+    Write-Host "WARNING: Failed to check problematic paths. $_" -ForegroundColor Yellow
+}
+
 # === CLEAN TEMP FILES ===
 Write-Host "Cleaning temp files..." -ForegroundColor Cyan
 $tempPath = Join-Path $SOURCE_PROFILE "AppData\Local\Temp"
@@ -58,17 +64,6 @@ if (Test-Path $tempPath) {
 }
 else {
     Write-Host "WARNING: Temp path '$tempPath' not found. Skipping cleanup." -ForegroundColor Yellow
-}
-
-# === TAKE OWNERSHIP & GRANT ACCESS ===
-Write-Host "Taking ownership and applying permissions..." -ForegroundColor Yellow
-try {
-    Start-Process -FilePath "takeown" -ArgumentList "/F `"$SOURCE_PROFILE`" /R /D Y" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
-    Start-Process -FilePath "icacls" -ArgumentList "`"$SOURCE_PROFILE`" /grant `"$($adminUser):(F)`" /T /C" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
-}
-catch {
-    Write-Host "ERROR: Failed to set permissions on '$SOURCE_PROFILE'. $_" -ForegroundColor Red
-    exit 1
 }
 
 # === ANALYZE PROFILE SIZE ===
@@ -87,7 +82,7 @@ catch {
 # === START ROBOCOPY ===
 Write-Host "Starting profile copy..." -ForegroundColor Green
 try {
-    $robocopyArgs = "`"$SOURCE_PROFILE`" `"$DESTINATION_PATH`" /E /COPY:DAT /R:3 /W:5 /V /LOG+:`"$LOG_FILE`" /XD $($EXCLUDE_DIRS -join ' ')"
+    $robocopyArgs = "`"$SOURCE_PROFILE`" `"$DESTINATION_PATH`" /E /COPY:DAT /R:3 /W:5 /V /LOG+:`"$LOG_FILE`" /XD $($EXCLUDE_DIRS -join ' ') /XJ"
     $robocopyProcess = Start-Process -FilePath "robocopy.exe" -ArgumentList $robocopyArgs -NoNewWindow -PassThru -Wait
 }
 catch {
