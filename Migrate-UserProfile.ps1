@@ -6,9 +6,16 @@ $LOG_FILE = "C:\Logs\Robocopy_USERNAME_TO_MIGRATE.log"
 $EXCLUDE_DIRS = @("AppData\Local\Temp", "AppData\LocalLow", "OneDrive")  # Exclude problematic folders
 
 # === ENSURE LOG DIRECTORY EXISTS ===
+Write-Host "Creating log directory if it doesn't exist..." -ForegroundColor Cyan
 $logDir = Split-Path $LOG_FILE -Parent
 if (-not (Test-Path $logDir)) {
-    New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    try {
+        New-Item -ItemType Directory -Path $logDir -Force -ErrorAction Stop | Out-Null
+        Write-Host "Log directory created at '$logDir'." -ForegroundColor Green
+    } catch {
+        Write-Host "ERROR: Failed to create log directory '$logDir'. $_" -ForegroundColor Red
+        exit 1
+    }
 }
 
 # === VALIDATE PATHS ===
@@ -51,7 +58,7 @@ if (Test-Path $tempPath) {
 Write-Host "Taking ownership and applying permissions..." -ForegroundColor Yellow
 try {
     Start-Process -FilePath "takeown" -ArgumentList "/F `"$SOURCE_PROFILE`" /R /D Y" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
-    Start-Process -FilePath "icacls" -ArgumentList "`"$SOURCE_PROFILE`" /grant `"$DOMAIN_ADMIN:(F)`" /T /C" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
+    Start-Process -FilePath "icacls" -ArgumentList "`"$SOURCE_PROFILE`" /grant '$DOMAIN_ADMIN:(F)' /T /C" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
 } catch {
     Write-Host "ERROR: Failed to set permissions on '$SOURCE_PROFILE'. $_" -ForegroundColor Red
     exit 1
