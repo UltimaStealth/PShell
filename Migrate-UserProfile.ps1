@@ -1,12 +1,12 @@
 # === CONFIGURATION ===
 $SOURCE_PROFILE = "C:\Users\USERNAME_TO_MIGRATE"  # Replace with actual username
-$DESTINATION_PATH = "\\FILESERVER\SHARE\USERNAME_TO_MIGRATE"  # Replace with actual share
+$DESTINATION_PATH = "C:\Temp\USERNAME_TO_MIGRATE"  # Local destination folder
 $LOG_FILE = "C:\Logs\Robocopy_USERNAME_TO_MIGRATE.log"
 $EXCLUDE_DIRS = @("AppData\Local\Temp", "AppData\LocalLow", "OneDrive")  # Exclude problematic folders
 
 # === PROMPT FOR CREDENTIALS ===
-Write-Host "Prompting for domain admin credentials..." -ForegroundColor Cyan
-$credential = Get-Credential -Message "Enter domain admin credentials (e.g., YOURDOMAIN\adminuser)"
+Write-Host "Prompting for admin credentials..." -ForegroundColor Cyan
+$credential = Get-Credential -Message "Enter admin credentials (e.g., YOURDOMAIN\adminuser or local admin)"
 if (-not $credential) {
     Write-Host "ERROR: No credentials provided. Exiting." -ForegroundColor Red
     exit 1
@@ -36,24 +36,13 @@ if (-not (Test-Path $SOURCE_PROFILE)) {
 if (-not (Test-Path $DESTINATION_PATH)) {
     Write-Host "WARNING: Destination path '$DESTINATION_PATH' does not exist. Attempting to create..." -ForegroundColor Yellow
     try {
-        New-Item -ItemType Directory -Path $DESTINATION_PATH -Force -Credential $credential -ErrorAction Stop | Out-Null
+        New-Item -ItemType Directory -Path $DESTINATION_PATH -Force -ErrorAction Stop | Out-Null
         Write-Host "Created destination path." -ForegroundColor Green
     }
     catch {
         Write-Host "ERROR: Failed to create destination path '$DESTINATION_PATH'. $_" -ForegroundColor Red
         exit 1
     }
-}
-
-# === CHECK NETWORK SHARE ACCESS ===
-Write-Host "Checking network share access..." -ForegroundColor Cyan
-try {
-    Test-Path $DESTINATION_PATH -Credential $credential -ErrorAction Stop | Out-Null
-}
-catch {
-    Write-Host "ERROR: Cannot access network share '$DESTINATION_PATH'. Ensure it’s mounted and credentials are valid." -ForegroundColor Red
-    Write-Host "Try mapping the share manually: net use \\FILESERVER\SHARE /user:$adminUser [password]" -ForegroundColor Yellow
-    exit 1
 }
 
 # === CLEAN TEMP FILES ===
@@ -75,7 +64,7 @@ else {
 Write-Host "Taking ownership and applying permissions..." -ForegroundColor Yellow
 try {
     Start-Process -FilePath "takeown" -ArgumentList "/F `"$SOURCE_PROFILE`" /R /D Y" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
-    Start-Process -FilePath "icacls" -ArgumentList "`"$SOURCE_PROFILE`" /grant '$adminUser:(F)' /T /C" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
+    Start-Process -FilePath "icacls" -ArgumentList "`"$SOURCE_PROFILE`" /grant `"$($adminUser):(F)`" /T /C" -NoNewWindow -Wait -ErrorAction Stop | Out-Null
 }
 catch {
     Write-Host "ERROR: Failed to set permissions on '$SOURCE_PROFILE'. $_" -ForegroundColor Red
